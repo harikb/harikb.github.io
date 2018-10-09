@@ -35,7 +35,7 @@
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://harikb.github.io/" />
-<meta property="og:updated_time" content="2018-10-06T15:40:02-07:00"/>
+<meta property="og:updated_time" content="2018-10-09T13:40:02-07:00"/>
 
 <meta itemprop="name" content="Harry&#39;s Random Notes">
 <meta itemprop="description" content="">
@@ -138,7 +138,7 @@
             </a>
         </h1>
         <div class="f6 f5-l lh-copy nested-copy-line-height nested-links">
-          Goal: Have postgres automatically partition your large table to smaller tables. This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
+          Goal: Explore Postgres 11&rsquo;s Declarative Partitioning features This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
 Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detach-ed from the frequently queried dataset, but retained in the database for adhoc queries detach-ed and attach-ed somewhere else (say, another table in same postgres instance)  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table.
         </div>
           <a href="/posts/postgres-11-hash-partitioning-part1/" class="ba b--moon-gray bg-light-gray br2 color-inherit dib f7 hover-bg-moon-gray link mt2 ph2 pv1">read more</a>
