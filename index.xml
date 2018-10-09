@@ -17,8 +17,8 @@
       <pubDate>Sat, 06 Oct 2018 15:40:02 -0700</pubDate>
       
       <guid>https://harikb.github.io/posts/postgres-11-hash-partitioning-part1/</guid>
-      <description>Goal: Have postgres partition your large dataset to smaller tables. This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
-Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detached from the queries dataset, but kept in the database for adhoc queries detach-ed and attach-ed somewhere else  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table.</description>
+      <description>Goal: Have postgres automatically partition your large table to smaller tables. This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
+Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detach-ed from the frequently queried dataset, but retained in the database for adhoc queries detach-ed and attach-ed somewhere else (say, another table in same postgres instance)  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table.</description>
     </item>
     
   </channel>

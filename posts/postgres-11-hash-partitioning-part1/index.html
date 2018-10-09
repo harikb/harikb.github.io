@@ -1,141 +1,122 @@
 <!DOCTYPE html>
 <html lang="en-us">
-    
-    
-
-
-    <head>
-    <link href="https://gmpg.org/xfn/11" rel="profile">
+  <head>
     <meta charset="utf-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta http-equiv="Cache-Control" content="public" />
-<!-- Enable responsiveness on mobile devices -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<meta name="generator" content="Hugo 0.49" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    
+    <title>Harry&#39;s Random Notes  | Postgres 11 Hash Partitioning Part1</title>
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+
+    <meta name="viewport" content="width=device-width,minimum-scale=1">
+    <meta name="generator" content="Hugo 0.49" />
+    
+    
+      <META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
+    
 
     
     
+      <link href="/dist/css/app.e08a958ae3e530145318b6373195c765.css" rel="stylesheet">
     
 
-<title>Postgres 11 Hash Partitioning Part1 • Harry&#39;s Random Notes</title>
+    
 
+    
+      
+    
 
-<meta name="twitter:card" content="summary"/>
-<meta name="twitter:title" content="Postgres 11 Hash Partitioning Part1"/>
-<meta name="twitter:description" content="Goal: Have postgres partition your large dataset to smaller tables. This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
-Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detached from the queries dataset, but kept in the database for adhoc queries detach-ed and attach-ed somewhere else  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table."/>
+    
 
-<meta property="og:title" content="Postgres 11 Hash Partitioning Part1" />
-<meta property="og:description" content="Goal: Have postgres partition your large dataset to smaller tables. This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
-Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detached from the queries dataset, but kept in the database for adhoc queries detach-ed and attach-ed somewhere else  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table." />
+    <meta property="og:title" content="Postgres 11 Hash Partitioning Part1" />
+<meta property="og:description" content="Goal: Have postgres automatically partition your large table to smaller tables. This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
+Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detach-ed from the frequently queried dataset, but retained in the database for adhoc queries detach-ed and attach-ed somewhere else (say, another table in same postgres instance)  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table." />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://harikb.github.io/posts/postgres-11-hash-partitioning-part1/" /><meta property="article:published_time" content="2018-10-06T15:40:02-07:00"/>
 <meta property="article:modified_time" content="2018-10-06T15:40:02-07:00"/>
 
+<meta itemprop="name" content="Postgres 11 Hash Partitioning Part1">
+<meta itemprop="description" content="Goal: Have postgres automatically partition your large table to smaller tables. This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
+Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detach-ed from the frequently queried dataset, but retained in the database for adhoc queries detach-ed and attach-ed somewhere else (say, another table in same postgres instance)  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table.">
+
+
+<meta itemprop="datePublished" content="2018-10-06T15:40:02-07:00" />
+<meta itemprop="dateModified" content="2018-10-06T15:40:02-07:00" />
+<meta itemprop="wordCount" content="2118">
+
+
+
+<meta itemprop="keywords" content="" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Postgres 11 Hash Partitioning Part1"/>
+<meta name="twitter:description" content="Goal: Have postgres automatically partition your large table to smaller tables. This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
+Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detach-ed from the frequently queried dataset, but retained in the database for adhoc queries detach-ed and attach-ed somewhere else (say, another table in same postgres instance)  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table."/>
+
+  </head>
+
+  <body class="ma0 avenir bg-near-white">
 
     
-
-
-<link rel="stylesheet" href="/css/hyde-hyde.css">
-<link rel="stylesheet" href="/css/print.css" media="print">
-
-
-    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
-    <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
-    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
-    <![endif]-->
-    <!-- Icons -->
-    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/apple-touch-icon-144-precomposed.png">
-    <link rel="shortcut icon" href="/favicon.png">
-    
-
-</head>
-
-
-    <body class=" ">
-    
-<div class="sidebar">
-  <div class="container ">
-    <div class="sidebar-about">
-      <span class="site__title">
-        <a href="https://harikb.github.io">Harry&#39;s Random Notes</a>
-      </span>
-      
-      <p class="site__description">
-        
-      </p>
-    </div>
-    <div class="collapsible-menu">
-      <input type="checkbox" id="menuToggle">
-      <label for="menuToggle">Harry&#39;s Random Notes</label>
-      <div class="menu-content">
-        <div>
-	<ul class="sidebar-nav">
-		 
-		
-		</li>
-	</ul>
-</div>
-
-        <section class="social">
-	
-	<a href="https://twitter.com/yetanotherfella" rel="me"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a>
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-</section>
-
-      </div>
-    </div>
-    <div class="copyright">
-  &copy; 2018 .
-  <a href="https://creativecommons.org/licenses/by-sa/4.0">Some Rights Reserved</a>.
-  Built with <a href="https://gohugo.io">Hugo</a> ❤️ <a href="https://github.com/htr3n/hyde-hyde">hyde-hyde</a>.
+   
   
-</div>
 
-  </div>
-</div>
-
-        <div class="content container">
-            
-    <article>
   <header>
-    <h1>Postgres 11 Hash Partitioning Part1</h1>
-    
-    
-<div class="post__meta">
-    
-    
-      <i class="fas fa-calendar-alt"></i> Oct 06, 2018
-    
-    
-    
-    
-    
-    <br/>
-    <i class="fas fa-clock"></i> 10 min read
-</div>
+    <div class="bg-black">
+      <nav class="pv3 ph3 ph4-ns" role="navigation">
+  <div class="flex-l justify-between items-center center">
+    <a href="https://harikb.github.io" class="f3 fw2 hover-white no-underline white-90 dib">
+      Harry&#39;s Random Notes
+    </a>
+    <div class="flex-l items-center">
+      
+      
 
 
+
+  <a href="https://twitter.com/yetanotherfella" class="link-transition twitter link dib z-999 pt3 pt0-l mr2" title="Twitter link">
+    <svg height="32px"  style="enable-background:new 0 0 67 67;" version="1.1" viewBox="0 0 67 67" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M37.167,22.283c-2.619,0.953-4.274,3.411-4.086,6.101  l0.063,1.038l-1.048-0.127c-3.813-0.487-7.145-2.139-9.974-4.915l-1.383-1.377l-0.356,1.017c-0.754,2.267-0.272,4.661,1.299,6.271  c0.838,0.89,0.649,1.017-0.796,0.487c-0.503-0.169-0.943-0.296-0.985-0.233c-0.146,0.149,0.356,2.076,0.754,2.839  c0.545,1.06,1.655,2.097,2.871,2.712l1.027,0.487l-1.215,0.021c-1.173,0-1.215,0.021-1.089,0.467  c0.419,1.377,2.074,2.839,3.918,3.475l1.299,0.444l-1.131,0.678c-1.676,0.976-3.646,1.526-5.616,1.568  C19.775,43.256,19,43.341,19,43.405c0,0.211,2.557,1.397,4.044,1.864c4.463,1.377,9.765,0.783,13.746-1.568  c2.829-1.673,5.657-5,6.978-8.221c0.713-1.716,1.425-4.851,1.425-6.354c0-0.975,0.063-1.102,1.236-2.267  c0.692-0.678,1.341-1.419,1.467-1.631c0.21-0.403,0.188-0.403-0.88-0.043c-1.781,0.636-2.033,0.551-1.152-0.402  c0.649-0.678,1.425-1.907,1.425-2.267c0-0.063-0.314,0.042-0.671,0.233c-0.377,0.212-1.215,0.53-1.844,0.72l-1.131,0.361l-1.027-0.7  c-0.566-0.381-1.361-0.805-1.781-0.932C39.766,21.902,38.131,21.944,37.167,22.283z M33,64C16.432,64,3,50.569,3,34S16.432,4,33,4  s30,13.431,30,30S49.568,64,33,64z" style="fill-rule:evenodd;clip-rule:evenodd;fill:;"/></svg>
+
+  </a>
+
+
+
+
+
+  <a href="https://github.com/harikb" class="link-transition github link dib z-999 pt3 pt0-l mr2" title="Github link">
+    <svg  height="32px"  style="enable-background:new 0 0 512 512;" version="1.1" viewBox="0 0 512 512" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <path d="M256,32C132.3,32,32,134.8,32,261.7c0,101.5,64.2,187.5,153.2,217.9c11.2,2.1,15.3-5,15.3-11.1   c0-5.5-0.2-19.9-0.3-39.1c-62.3,13.9-75.5-30.8-75.5-30.8c-10.2-26.5-24.9-33.6-24.9-33.6c-20.3-14.3,1.5-14,1.5-14   c22.5,1.6,34.3,23.7,34.3,23.7c20,35.1,52.4,25,65.2,19.1c2-14.8,7.8-25,14.2-30.7c-49.7-5.8-102-25.5-102-113.5   c0-25.1,8.7-45.6,23-61.6c-2.3-5.8-10-29.2,2.2-60.8c0,0,18.8-6.2,61.6,23.5c17.9-5.1,37-7.6,56.1-7.7c19,0.1,38.2,2.6,56.1,7.7   c42.8-29.7,61.5-23.5,61.5-23.5c12.2,31.6,4.5,55,2.2,60.8c14.3,16.1,23,36.6,23,61.6c0,88.2-52.4,107.6-102.3,113.3   c8,7.1,15.2,21.1,15.2,42.5c0,30.7-0.3,55.5-0.3,63c0,6.1,4,13.3,15.4,11C415.9,449.1,480,363.1,480,261.7   C480,134.8,379.7,32,256,32z"/>
+</svg>
+
+  </a>
+
+
+
+    </div>
+  </div>
+</nav>
+
+    </div>
   </header>
-  
-  
-  <div class="post">
-    
 
-<h1 id="goal-have-postgres-partition-your-large-dataset-to-smaller-tables">Goal: Have postgres partition your large dataset to smaller tables.</h1>
+
+
+    <main class="pb7" role="main">
+      
+  <article class="flex-l flex-wrap justify-between mw8 center ph3 ph0-l">
+
+    <header class="mt4 w-100">
+      <p class="f6 b helvetica tracked">
+          
+        POSTS
+      </p>
+      <h1 class="f1 athelas mb1">Postgres 11 Hash Partitioning Part1</h1>
+      
+      <time class="f6 mv4 dib tracked" datetime="2018-10-06T15:40:02-07:00">October 6, 2018</time>
+    </header>
+
+    <main class="nested-copy-line-height lh-copy serif f4 nested-links nested-img mid-gray pr4-l w-two-thirds-l">
+
+<h1 id="goal-have-postgres-automatically-partition-your-large-table-to-smaller-tables">Goal: Have postgres automatically partition your large table to smaller tables.</h1>
 
 <p>This entire post is detailed explanation of <a href="http://www.postgresql-archive.org/Postgres-11-partitioning-with-a-custom-hash-function-tp6048339.html">a thread</a> in postgresql mailing list and wonderful answers by <a href="https://blog.2ndquadrant.com/partition-elimination-postgresql-11/">David Rowley</a></p>
 
@@ -146,8 +127,8 @@ Why do I need partitions? I already have an index!  A partition is a logical uni
 
 <ul>
 <li><code>drop</code>-ed and removed from queried dataset as well as the database</li>
-<li><code>detached</code> from the queries dataset, but kept in the database for adhoc queries</li>
-<li><code>detach</code>-ed and <code>attach</code>-ed somewhere else</li>
+<li><code>detach</code>-ed from the frequently queried dataset, but retained in the database for adhoc queries</li>
+<li><code>detach</code>-ed and <code>attach</code>-ed somewhere else (say, another table in same postgres instance)</li>
 </ul></li>
 <li>Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table.</li>
 </ul>
@@ -155,11 +136,11 @@ Why do I need partitions? I already have an index!  A partition is a logical uni
 <h3 id="types-of-partitioning-list-range-and-hash">Types of partitioning - <code>list</code>, <code>range</code>, and <code>hash</code></h3>
 
 <ul>
-<li>If your dataset needs to be partitioned by date so that you can expire data easily, choose <code>list</code> or <code>range</code>. I will not go into these, because Postgres documentation itself explains this very well.</li>
+<li>If your dataset needs to be partitioned by date where you can expire data easily, choose <code>list</code> or <code>range</code>. I will not go into these, because Postgres documentation itself <a href="https://www.postgresql.org/docs/11/static/ddl-partitioning.html#DDL-PARTITIONING-DECLARATIVE">explains this very well</a>. It may be worthwhile to read that document first.</li>
 <li><code>hash</code> is special, it may be what you need if your key isn&rsquo;t something you can easily enumerate, say a <code>userid</code>. <code>hash</code> will distribute the data evenly (assuming the <code>user</code>s themselves are evenly distributed). Instead of configuring data for <code>user1</code> to go into the child table <code>partition-for-user1</code>, we would be asking for it to be directed to <code>partition-N</code> where <code>N = hash(key) % M</code>, M being the number of partitions.
 
 <ul>
-<li>Do not use hash partitions if you need to expire data. For example, if you decided to use <code>HASH( date)</code>, it wouldn&rsquo;t let you archive a month&rsquo;s worth of data easily. HASH(&lsquo;2018-10-01&rsquo;) has no relation to HASH(&lsquo;2018-10-01&rsquo;)</li>
+<li>Do not use hash partitions if you need to expire data. For example, if you decided to use <code>HASH(date)</code>, it wouldn&rsquo;t let you archive a month&rsquo;s worth of data easily. HASH(&lsquo;2018-10-01&rsquo;) has no relation to HASH(&lsquo;2018-10-01&rsquo;)</li>
 </ul></li>
 </ul>
 
@@ -170,29 +151,26 @@ Why do I need partitions? I already have an index!  A partition is a logical uni
 <li>If you need the ability to move partitions around (which was unique to my use case), you need to identity (from your application), which key resolves to which partition.</li>
 </ul>
 
-<h1 id="let-us-get-familiar-with-hash-partitioning">Let us get familiar with hash partitioning</h1>
+<h1 id="let-us-get-familiar-with-the-builtin-hash-partitioning">Let us get familiar with the builtin hash partitioning</h1>
 
-<h3 id="create-main-table">Create Main Table</h3>
+<h3 id="create-main-table">Create main table</h3>
 
-<pre><code>hyper=&gt; create table foobar (k text, something_else int) partition by hash (k);
-CREATE TABLE
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar (k text, something_else int) partition <span style="color:#66d9ef">by</span> hash (k);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span></code></pre></div>
 
 <h3 id="let-us-try-to-insert-some-data">Let us try to insert some data</h3>
 
-<pre><code>hyper=&gt; insert into foobar values ('Hello', 25);
-ERROR:  no partition of relation &quot;foobar&quot; found for row
-DETAIL:  Partition key of the failing row contains (k) = (Hello).
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">insert</span> <span style="color:#66d9ef">into</span> foobar <span style="color:#66d9ef">values</span> (<span style="color:#e6db74">&#39;Hello&#39;</span>, <span style="color:#ae81ff">25</span>);
+ERROR:  <span style="color:#66d9ef">no</span> partition <span style="color:#66d9ef">of</span> relation <span style="color:#e6db74">&#34;foobar&#34;</span> <span style="color:#66d9ef">found</span> <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">row</span>
+DETAIL:  Partition <span style="color:#66d9ef">key</span> <span style="color:#66d9ef">of</span> the failing <span style="color:#66d9ef">row</span> <span style="color:#66d9ef">contains</span> (k) <span style="color:#f92672">=</span> (Hello).</code></pre></div>
 
 <p>Well, we told postgres to use HASH to partition, but didn&rsquo;t tell it how to resolve a hash value to a partition. Let us see what is the hash for key = &lsquo;hello&rsquo;&hellip;</p>
 
-<pre><code>hyper=&gt; select hashtext('Hello');
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> hashtext(<span style="color:#e6db74">&#39;Hello&#39;</span>);
  hashtext
------------
- 820977155
-(1 row)
-</code></pre>
+<span style="color:#75715e">-----------
+</span><span style="color:#75715e"></span> <span style="color:#ae81ff">820977155</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)</code></pre></div>
 
 <p>NOTE: hashtext() is not really the one PG uses, but that is the closest approximation for now.</p>
 
@@ -200,103 +178,96 @@ DETAIL:  Partition key of the failing row contains (k) = (Hello).
 
 <p>Let us use the usual trick of doing a <code>mod</code> using the number of partitions (let us say <code>4</code> for now)</p>
 
-<pre><code>hyper=&gt; select 820977155 % 4;
- ?column?
-----------
-        3
-(1 row)
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> <span style="color:#ae81ff">820977155</span> <span style="color:#f92672">%</span> <span style="color:#ae81ff">4</span>;
+ <span style="color:#f92672">?</span><span style="color:#66d9ef">column</span><span style="color:#f92672">?</span>
+<span style="color:#75715e">----------
+</span><span style="color:#75715e"></span>        <span style="color:#ae81ff">3</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)
 
-
-hyper=&gt; create table foobar3 partition of foobar for values with (modulus 4, remainder 3);
-CREATE TABLE
-</code></pre>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar3 partition <span style="color:#66d9ef">of</span> foobar <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">values</span> <span style="color:#66d9ef">with</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">3</span>);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span></code></pre></div>
 
 <p>This asks PG to take a hash value like <code>820977155</code> and do <code>modulo 4</code> and find the remainder and use that as the partition identifier, which, <code>for value=3</code> is tied to <code>foobar3</code></p>
 
-<pre><code>hyper=&gt; create table foobar3 partition of foobar for values with (modulus 4, remainder 3);
-CREATE TABLE
-hyper=&gt; \d foobar
-                   Table &quot;public.foobar&quot;
-     Column     |  Type   | Collation | Nullable | Default
-----------------+---------+-----------+----------+---------
- k              | text    |           |          |
- something_else | integer |           |          |
-Partition key: HASH (k)
-Number of partitions: 1 (Use \d+ to list them.)
-
-hyper=&gt; \d+ foobar
-                                       Table &quot;public.foobar&quot;
-     Column     |  Type   | Collation | Nullable | Default | Storage  | Stats target | Description
-----------------+---------+-----------+----------+---------+----------+--------------+-------------
- k              | text    |           |          |         | extended |              |
- something_else | integer |           |          |         | plain    |              |
-Partition key: HASH (k)
-Partitions: foobar3 FOR VALUES WITH (modulus 4, remainder 3)
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar3 partition <span style="color:#66d9ef">of</span> foobar <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">values</span> <span style="color:#66d9ef">with</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">3</span>);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#960050;background-color:#1e0010">\</span>d foobar
+                   <span style="color:#66d9ef">Table</span> <span style="color:#e6db74">&#34;public.foobar&#34;</span>
+     <span style="color:#66d9ef">Column</span>     <span style="color:#f92672">|</span>  <span style="color:#66d9ef">Type</span>   <span style="color:#f92672">|</span> <span style="color:#66d9ef">Collation</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Nullable</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Default</span>
+<span style="color:#75715e">----------------+---------+-----------+----------+---------
+</span><span style="color:#75715e"></span> k              <span style="color:#f92672">|</span> text    <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>
+ something_else <span style="color:#f92672">|</span> integer <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>
+Partition <span style="color:#66d9ef">key</span>: HASH (k)
+Number <span style="color:#66d9ef">of</span> partitions: <span style="color:#ae81ff">1</span> (Use <span style="color:#960050;background-color:#1e0010">\</span>d<span style="color:#f92672">+</span> <span style="color:#66d9ef">to</span> list them.)
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#960050;background-color:#1e0010">\</span>d<span style="color:#f92672">+</span> foobar
+                                       <span style="color:#66d9ef">Table</span> <span style="color:#e6db74">&#34;public.foobar&#34;</span>
+     <span style="color:#66d9ef">Column</span>     <span style="color:#f92672">|</span>  <span style="color:#66d9ef">Type</span>   <span style="color:#f92672">|</span> <span style="color:#66d9ef">Collation</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Nullable</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Default</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Storage</span>  <span style="color:#f92672">|</span> Stats target <span style="color:#f92672">|</span> Description
+<span style="color:#75715e">----------------+---------+-----------+----------+---------+----------+--------------+-------------
+</span><span style="color:#75715e"></span> k              <span style="color:#f92672">|</span> text    <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>         <span style="color:#f92672">|</span> extended <span style="color:#f92672">|</span>              <span style="color:#f92672">|</span>
+ something_else <span style="color:#f92672">|</span> integer <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>         <span style="color:#f92672">|</span> plain    <span style="color:#f92672">|</span>              <span style="color:#f92672">|</span>
+Partition <span style="color:#66d9ef">key</span>: HASH (k)
+Partitions: foobar3 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">3</span>)</code></pre></div>
 
 <h3 id="try-again">Try again?</h3>
 
-<pre><code>hyper=&gt; insert into foobar values ('Hello', 25);
-ERROR:  no partition of relation &quot;foobar&quot; found for row
-DETAIL:  Partition key of the failing row contains (k) = (Hello).
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">insert</span> <span style="color:#66d9ef">into</span> foobar <span style="color:#66d9ef">values</span> (<span style="color:#e6db74">&#39;Hello&#39;</span>, <span style="color:#ae81ff">25</span>);
+ERROR:  <span style="color:#66d9ef">no</span> partition <span style="color:#66d9ef">of</span> relation <span style="color:#e6db74">&#34;foobar&#34;</span> <span style="color:#66d9ef">found</span> <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">row</span>
+DETAIL:  Partition <span style="color:#66d9ef">key</span> <span style="color:#66d9ef">of</span> the failing <span style="color:#66d9ef">row</span> <span style="color:#66d9ef">contains</span> (k) <span style="color:#f92672">=</span> (Hello).</code></pre></div>
 
 <p>Nope we still don&rsquo;t know where <code>Hello</code> falls. But this is just an exercise - do I really care which partition number is used?</p>
 
-<h3 id="complete-defining-all-partitions-probably-programmatically">Complete defining all partitions (probably programmatically)</h3>
+<h3 id="complete-defining-all-partitions-programmatically-if-number-of-partitions-is-large">Complete defining all partitions (programmatically, if number of partitions is large)</h3>
 
-<pre><code>hyper=&gt; create table foobar2 partition of foobar for values with (modulus 4, remainder 1);
-CREATE TABLE
-hyper=&gt; create table foobar3 partition of foobar for values with (modulus 4, remainder 2);
-CREATE TABLE
-hyper=&gt; create table foobar4 partition of foobar for values with (modulus 4, remainder 3);
-CREATE TABLE
-hyper=&gt; \d+ foobar
-                                       Table &quot;public.foobar&quot;
-     Column     |  Type   | Collation | Nullable | Default | Storage  | Stats target | Description
-----------------+---------+-----------+----------+---------+----------+--------------+-------------
- k              | text    |           |          |         | extended |              |
- something_else | integer |           |          |         | plain    |              |
-Partition key: HASH (k)
-Partitions: foobar1 FOR VALUES WITH (modulus 4, remainder 0),
-            foobar2 FOR VALUES WITH (modulus 4, remainder 1),
-            foobar3 FOR VALUES WITH (modulus 4, remainder 2),
-            foobar4 FOR VALUES WITH (modulus 4, remainder 3)
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar2 partition <span style="color:#66d9ef">of</span> foobar <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">values</span> <span style="color:#66d9ef">with</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">1</span>);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar3 partition <span style="color:#66d9ef">of</span> foobar <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">values</span> <span style="color:#66d9ef">with</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">2</span>);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar4 partition <span style="color:#66d9ef">of</span> foobar <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">values</span> <span style="color:#66d9ef">with</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">3</span>);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#960050;background-color:#1e0010">\</span>d<span style="color:#f92672">+</span> foobar
+                                       <span style="color:#66d9ef">Table</span> <span style="color:#e6db74">&#34;public.foobar&#34;</span>
+     <span style="color:#66d9ef">Column</span>     <span style="color:#f92672">|</span>  <span style="color:#66d9ef">Type</span>   <span style="color:#f92672">|</span> <span style="color:#66d9ef">Collation</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Nullable</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Default</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Storage</span>  <span style="color:#f92672">|</span> Stats target <span style="color:#f92672">|</span> Description
+<span style="color:#75715e">----------------+---------+-----------+----------+---------+----------+--------------+-------------
+</span><span style="color:#75715e"></span> k              <span style="color:#f92672">|</span> text    <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>         <span style="color:#f92672">|</span> extended <span style="color:#f92672">|</span>              <span style="color:#f92672">|</span>
+ something_else <span style="color:#f92672">|</span> integer <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>         <span style="color:#f92672">|</span> plain    <span style="color:#f92672">|</span>              <span style="color:#f92672">|</span>
+Partition <span style="color:#66d9ef">key</span>: HASH (k)
+Partitions: foobar1 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">0</span>),
+            foobar2 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">1</span>),
+            foobar3 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">2</span>),
+            foobar4 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">3</span>)</code></pre></div>
 
 <h3 id="try-again-1">Try again?</h3>
 
-<pre><code>hyper=&gt; create table foobar2 partition of foobar for values with (modulus 4, remainder 2);
-CREATE TABLE
-hyper=&gt; create table foobar1 partition of foobar for values with (modulus 4, remainder 1);
-CREATE TABLE
-hyper=&gt; create table foobar0 partition of foobar for values with (modulus 4, remainder 0);
-CREATE TABLE
-hyper=&gt; insert into foobar values ('Hello', 25);
-INSERT 0 1
-hyper=&gt; select * from foobar;
-   k   | something_else
--------+----------------
- Hello |             25
-(1 row)
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar2 partition <span style="color:#66d9ef">of</span> foobar <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">values</span> <span style="color:#66d9ef">with</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">2</span>);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar1 partition <span style="color:#66d9ef">of</span> foobar <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">values</span> <span style="color:#66d9ef">with</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">1</span>);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar0 partition <span style="color:#66d9ef">of</span> foobar <span style="color:#66d9ef">for</span> <span style="color:#66d9ef">values</span> <span style="color:#66d9ef">with</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">0</span>);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">insert</span> <span style="color:#66d9ef">into</span> foobar <span style="color:#66d9ef">values</span> (<span style="color:#e6db74">&#39;Hello&#39;</span>, <span style="color:#ae81ff">25</span>);
+<span style="color:#66d9ef">INSERT</span> <span style="color:#ae81ff">0</span> <span style="color:#ae81ff">1</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar;
+   k   <span style="color:#f92672">|</span> something_else
+<span style="color:#75715e">-------+----------------
+</span><span style="color:#75715e"></span> Hello <span style="color:#f92672">|</span>             <span style="color:#ae81ff">25</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)</code></pre></div>
 
 <h3 id="where-did-the-row-land">Where did the row land?</h3>
 
 <p>Instead of querying each of the 4 tables, here is a neat trick</p>
 
-<pre><code>hyper=&gt; select tableoid::regclass, * from foobar;
- tableoid |   k   | something_else
-----------+-------+----------------
- foobar1  | Hello |             25
-(1 row)
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> tableoid::regclass, <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar;
+ tableoid <span style="color:#f92672">|</span>   k   <span style="color:#f92672">|</span> something_else
+<span style="color:#75715e">----------+-------+----------------
+</span><span style="color:#75715e"></span> foobar1  <span style="color:#f92672">|</span> Hello <span style="color:#f92672">|</span>             <span style="color:#ae81ff">25</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)</code></pre></div>
 
 <h1 id="the-impatient-gopher">The Impatient Gopher</h1>
 
 <p>&hellip;that I am, I immediately ported the postgres hash library in C to Go. Although it is evident from the example above that there is more going on there. The library is <a href="https://github.com/harikb/pghash">here</a>, but it turned out to be a waste of time. The library is still useful if you are trying to follow <code>hashtext()</code> but not for hash partitionining, as per the <a href="http://www.postgresql-archive.org/Postgres-11-partitioning-with-a-custom-hash-function-tp6048339p6048643.html">David Rowley</a>, there is hash seed involved.</p>
 
-<h1 id="other-outstanding-issues-with-builtin-hash">Other outstanding issues with builtin hash</h1>
+<h4 id="other-issues-with-builtin-hash">Other issues with builtin hash</h4>
 
 <p>See <a href="https://www.postgresql-archive.org/Hash-Functions-td5961137.html">this thread</a>. It seems, it is worthwhile to investigate custom partitioning.</p>
 
@@ -304,130 +275,121 @@ hyper=&gt; select * from foobar;
 
 <p>Let us declare a postgres function that will use <a href="https://github.com/Cyan4973/xxHash">xxhash</a></p>
 
-<pre><code>#include &quot;postgres.h&quot;
-#include &quot;fmgr.h&quot;
-#include &quot;utils/builtins.h&quot;
-#include &quot;xxhash.h&quot;
-
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c"><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;postgres.h&#34;</span><span style="color:#75715e">
+</span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;fmgr.h&#34;</span><span style="color:#75715e">
+</span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;utils/builtins.h&#34;</span><span style="color:#75715e">
+</span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;xxhash.h&#34;</span><span style="color:#75715e">
+</span><span style="color:#75715e"></span>	
 PG_MODULE_MAGIC;
-
+	
 PG_FUNCTION_INFO_V1(loopyhash);
 Datum
-loopyhash(PG_FUNCTION_ARGS)
+<span style="color:#a6e22e">loopyhash</span>(PG_FUNCTION_ARGS)
 {
-    uint8_t out[8];
-
-    text *arg1 = PG_GETARG_TEXT_PP(0);
-    int32 arg1_size = VARSIZE_ANY_EXHDR(arg1);
-
-    int64 arg2 = PG_GETARG_INT64(1); // For now, seed is unused, set to zero
-
-    unsigned long long retval64 = XXH64(VARDATA_ANY(arg1), arg1_size, 0);
-
+    text <span style="color:#f92672">*</span>arg1 <span style="color:#f92672">=</span> PG_GETARG_TEXT_PP(<span style="color:#ae81ff">0</span>);
+    int32 arg1_size <span style="color:#f92672">=</span> VARSIZE_ANY_EXHDR(arg1);
+	
+    int64 arg2 <span style="color:#f92672">=</span> PG_GETARG_INT64(<span style="color:#ae81ff">1</span>); <span style="color:#75715e">// For now, seed is unused, set to zero
+</span><span style="color:#75715e"></span>	
+    <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span> <span style="color:#66d9ef">long</span> retval64 <span style="color:#f92672">=</span> XXH64(VARDATA_ANY(arg1), arg1_size, <span style="color:#ae81ff">0</span>);
+	
     PG_RETURN_INT64(retval64);
-}
-</code></pre>
+}</code></pre></div>
 
 <p>Notice that a <code>seed</code> is passed into the hash function, but I ignore it for now. I don&rsquo;t need a seed.</p>
 
 <h4 id="compile-and-install">Compile and install</h4>
 
-<pre><code>$ gcc -fPIC -I/usr/include/postgresql/11/server -c pge0.c &amp;&amp; gcc -shared -o pge.so pge0.o
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ gcc -fPIC -I/usr/include/postgresql/11/server -c pge0.c <span style="color:#f92672">&amp;&amp;</span> gcc -shared -o pge.so pge0.o</code></pre></div>
 
 <h3 id="install-extension-in-to-pg">Install extension in to PG.</h3>
 
-<pre><code>hyper=# CREATE FUNCTION loopyhash(text, int8) RETURNS bigint
-     AS '/home/hbhaskar/tmp/pge/pge.so', 'loopyhash'
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">hyper<span style="color:#f92672">=</span><span style="color:#75715e"># CREATE FUNCTION loopyhash(text, int8) RETURNS bigint
+</span><span style="color:#75715e"></span>     AS <span style="color:#e6db74">&#39;/tmp/pge/pge.so&#39;</span>, <span style="color:#e6db74">&#39;loopyhash&#39;</span>
      LANGUAGE C STRICT IMMUTABLE;
-CREATE FUNCTION
-</code></pre>
+CREATE FUNCTION</code></pre></div>
 
 <h3 id="create-operator-clas">Create operator clas</h3>
 
-<pre><code>hyper=# create operator class loopyhash_text_ops
-for type text
-using hash as
-operator 1 =,
-function 2 loopyhash(text, int8);
-CREATE OPERATOR CLASS
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=#</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">operator</span> <span style="color:#66d9ef">class</span> loopyhash_text_ops
+<span style="color:#66d9ef">for</span> <span style="color:#66d9ef">type</span> text
+<span style="color:#66d9ef">using</span> hash <span style="color:#66d9ef">as</span>
+<span style="color:#66d9ef">operator</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">=</span>,
+<span style="color:#66d9ef">function</span> <span style="color:#ae81ff">2</span> loopyhash(text, int8);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">OPERATOR</span> <span style="color:#66d9ef">CLASS</span></code></pre></div>
 
 <h3 id="create-the-table-with-hash-partitioning-but-using-the-custom-operator-class-inside-hash-k-expression">Create the table with HASH partitioning, but using the custom operator-class inside <code>HASH (k...)</code> expression</h3>
 
-<pre><code>hyper=# create table foobar (k text primary key, something_else int) partition by hash (k loopyhash_text_ops);
-CREATE TABLE
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=#</span> <span style="color:#66d9ef">create</span> <span style="color:#66d9ef">table</span> foobar (k text <span style="color:#66d9ef">primary</span> <span style="color:#66d9ef">key</span>, something_else int) partition <span style="color:#66d9ef">by</span> hash (k loopyhash_text_ops);
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span></code></pre></div>
 
 <p>Notice how the expression is <code>partition by hash (k loopyhash_text_ops)</code> instead of <code>partition by hash (k)</code></p>
 
-<h3 id="define-hash-functions-and-operator-class-for-other-data-type-if-necessary">Define hash-functions and operator class for other data-type, if necessary</h3>
+<h3 id="define-hash-functions-and-operator-class-for-other-data-types-if-necessary">Define hash-functions and operator class for other data-types, if necessary</h3>
 
 <p>Not applicable to my use-case. Skipping it. I am just dealing with a single text column.</p>
 
 <h3 id="define-partitions">Define partitions</h3>
 
-<pre><code>hyper=&gt; \d foobar
-                   Table &quot;public.foobar&quot;
-     Column     |  Type   | Collation | Nullable | Default
-----------------+---------+-----------+----------+---------
- k              | text    |           |          |
- something_else | integer |           |          |
-Partition key: HASH (k loopyhash_text_ops)
-Number of partitions: 0
-
-hyper=&gt; \i foobar.sql
-BEGIN
-CREATE TABLE
-CREATE TABLE
-CREATE TABLE
-CREATE TABLE
-COMMIT
-hyper=&gt; \d foobar
-                   Table &quot;public.foobar&quot;
-     Column     |  Type   | Collation | Nullable | Default
-----------------+---------+-----------+----------+---------
- k              | text    |           |          |
- something_else | integer |           |          |
-Partition key: HASH (k loopyhash_text_ops)
-Number of partitions: 4 (Use \d+ to list them.)
-
-hyper=&gt; \d+ foobar
-                                       Table &quot;public.foobar&quot;
-     Column     |  Type   | Collation | Nullable | Default | Storage  | Stats target | Description
-----------------+---------+-----------+----------+---------+----------+--------------+-------------
- k              | text    |           |          |         | extended |              |
- something_else | integer |           |          |         | plain    |              |
-Partition key: HASH (k loopyhash_text_ops)
-Partitions: foobar_00 FOR VALUES WITH (modulus 4, remainder 0),
-            foobar_01 FOR VALUES WITH (modulus 4, remainder 1),
-            foobar_02 FOR VALUES WITH (modulus 4, remainder 2),
-            foobar_03 FOR VALUES WITH (modulus 4, remainder 3)
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#960050;background-color:#1e0010">\</span>d foobar
+                   <span style="color:#66d9ef">Table</span> <span style="color:#e6db74">&#34;public.foobar&#34;</span>
+     <span style="color:#66d9ef">Column</span>     <span style="color:#f92672">|</span>  <span style="color:#66d9ef">Type</span>   <span style="color:#f92672">|</span> <span style="color:#66d9ef">Collation</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Nullable</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Default</span>
+<span style="color:#75715e">----------------+---------+-----------+----------+---------
+</span><span style="color:#75715e"></span> k              <span style="color:#f92672">|</span> text    <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>
+ something_else <span style="color:#f92672">|</span> integer <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>
+Partition <span style="color:#66d9ef">key</span>: HASH (k loopyhash_text_ops)
+Number <span style="color:#66d9ef">of</span> partitions: <span style="color:#ae81ff">0</span>
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#960050;background-color:#1e0010">\</span>i foobar.<span style="color:#66d9ef">sql</span>
+<span style="color:#66d9ef">BEGIN</span>
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+<span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span>
+<span style="color:#66d9ef">COMMIT</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#960050;background-color:#1e0010">\</span>d foobar
+                   <span style="color:#66d9ef">Table</span> <span style="color:#e6db74">&#34;public.foobar&#34;</span>
+     <span style="color:#66d9ef">Column</span>     <span style="color:#f92672">|</span>  <span style="color:#66d9ef">Type</span>   <span style="color:#f92672">|</span> <span style="color:#66d9ef">Collation</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Nullable</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Default</span>
+<span style="color:#75715e">----------------+---------+-----------+----------+---------
+</span><span style="color:#75715e"></span> k              <span style="color:#f92672">|</span> text    <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>
+ something_else <span style="color:#f92672">|</span> integer <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>
+Partition <span style="color:#66d9ef">key</span>: HASH (k loopyhash_text_ops)
+Number <span style="color:#66d9ef">of</span> partitions: <span style="color:#ae81ff">4</span> (Use <span style="color:#960050;background-color:#1e0010">\</span>d<span style="color:#f92672">+</span> <span style="color:#66d9ef">to</span> list them.)
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#960050;background-color:#1e0010">\</span>d<span style="color:#f92672">+</span> foobar
+                                       <span style="color:#66d9ef">Table</span> <span style="color:#e6db74">&#34;public.foobar&#34;</span>
+     <span style="color:#66d9ef">Column</span>     <span style="color:#f92672">|</span>  <span style="color:#66d9ef">Type</span>   <span style="color:#f92672">|</span> <span style="color:#66d9ef">Collation</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Nullable</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Default</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">Storage</span>  <span style="color:#f92672">|</span> Stats target <span style="color:#f92672">|</span> Description
+<span style="color:#75715e">----------------+---------+-----------+----------+---------+----------+--------------+-------------
+</span><span style="color:#75715e"></span> k              <span style="color:#f92672">|</span> text    <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>         <span style="color:#f92672">|</span> extended <span style="color:#f92672">|</span>              <span style="color:#f92672">|</span>
+ something_else <span style="color:#f92672">|</span> integer <span style="color:#f92672">|</span>           <span style="color:#f92672">|</span>          <span style="color:#f92672">|</span>         <span style="color:#f92672">|</span> plain    <span style="color:#f92672">|</span>              <span style="color:#f92672">|</span>
+Partition <span style="color:#66d9ef">key</span>: HASH (k loopyhash_text_ops)
+Partitions: foobar_00 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">0</span>),
+            foobar_01 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">1</span>),
+            foobar_02 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">2</span>),
+            foobar_03 <span style="color:#66d9ef">FOR</span> <span style="color:#66d9ef">VALUES</span> <span style="color:#66d9ef">WITH</span> (modulus <span style="color:#ae81ff">4</span>, remainder <span style="color:#ae81ff">3</span>)</code></pre></div>
 
 <h3 id="try-insert">Try insert</h3>
 
-<pre><code>hyper=&gt; insert into foobar values ('Hello', 25);
-INSERT 0 1
-
-hyper=&gt; select loopyhash('Hello'::text, 0);
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">insert</span> <span style="color:#66d9ef">into</span> foobar <span style="color:#66d9ef">values</span> (<span style="color:#e6db74">&#39;Hello&#39;</span>, <span style="color:#ae81ff">25</span>);
+<span style="color:#66d9ef">INSERT</span> <span style="color:#ae81ff">0</span> <span style="color:#ae81ff">1</span>
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> loopyhash(<span style="color:#e6db74">&#39;Hello&#39;</span>::text, <span style="color:#ae81ff">0</span>);
      loopyhash
---------------------
- 753694413698530628
-(1 row)
-
-hyper=&gt; select 753694413698530628 % 4;
- ?column?
-----------
-        0
-(1 row)
-
-hyper=&gt; select tableoid::regclass, * from foobar;
- tableoid  |   k   | something_else
------------+-------+----------------
- foobar_03 | Hello |             25
-(1 row)
-</code></pre>
+<span style="color:#75715e">--------------------
+</span><span style="color:#75715e"></span> <span style="color:#ae81ff">753694413698530628</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> <span style="color:#ae81ff">753694413698530628</span> <span style="color:#f92672">%</span> <span style="color:#ae81ff">4</span>;
+ <span style="color:#f92672">?</span><span style="color:#66d9ef">column</span><span style="color:#f92672">?</span>
+<span style="color:#75715e">----------
+</span><span style="color:#75715e"></span>        <span style="color:#ae81ff">0</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> tableoid::regclass, <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar;
+ tableoid  <span style="color:#f92672">|</span>   k   <span style="color:#f92672">|</span> something_else
+<span style="color:#75715e">-----------+-------+----------------
+</span><span style="color:#75715e"></span> foobar_03 <span style="color:#f92672">|</span> Hello <span style="color:#f92672">|</span>             <span style="color:#ae81ff">25</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)</code></pre></div>
 
 <p>Clearly, we are still off. Even though we ignored the <code>seed</code> and did our own calculation, it didn&rsquo;t match with PG.</p>
 
@@ -435,112 +397,107 @@ hyper=&gt; select tableoid::regclass, * from foobar;
 
 <p><a href="http://www.postgresql-archive.org/Postgres-11-partitioning-with-a-custom-hash-function-tp6048339p6048757.html">Turns out</a>, postgresql <a href="https://github.com/postgres/postgres/blob/29c94e03c7d05d2b29afa1de32795ce178531246/src/backend/partitioning/partbounds.c#L2075">applies a method</a>  <code>hash_combine64()</code> on each of the hashes for a multi-column hash expression. In this case it doesn&rsquo;t need to do that, but the code is generic.</p>
 
-<p>I can solve this two ways. Either include this <a href="https://github.com/postgres/postgres/blob/29c94e03c7d05d2b29afa1de32795ce178531246/src/include/utils/hashutils.h#L32"><code>hash_combine64()</code></a> in my client code or offset for this inside the postgres custom hash function. This isn&rsquo;t perfect, probably has issues with integer underflow, but works for now.</p>
+<p>I can solve this two ways. Either include this <a href="https://github.com/postgres/postgres/blob/29c94e03c7d05d2b29afa1de32795ce178531246/src/include/utils/hashutils.h#L32"><code>hash_combine64()</code></a> in my client code or offset for this inside the postgres custom hash function. I chose the latter just so that I can use the files I already created for a prototype. This isn&rsquo;t perfect, and probably has <a href="https://play.golang.org/p/4n3yfUavh4f">integer underflow</a> issues you may have to <a href="https://play.golang.org/p/uFapke_kNt1">work around</a>. But we are OK in C at least as far as I know. Moreover, we are only interested in the last few bits of the hash (for the modulo operation)</p>
 
-<pre><code>$ cat pge1.c
-#include &quot;postgres.h&quot;
-#include &quot;fmgr.h&quot;
-#include &quot;utils/builtins.h&quot;
-#include &quot;xxhash.h&quot;
-
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c"><span style="color:#960050;background-color:#1e0010">$</span> cat pge1.c
+<span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;postgres.h&#34;</span><span style="color:#75715e">
+</span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;fmgr.h&#34;</span><span style="color:#75715e">
+</span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;utils/builtins.h&#34;</span><span style="color:#75715e">
+</span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;xxhash.h&#34;</span><span style="color:#75715e">
+</span><span style="color:#75715e"></span>	
 PG_MODULE_MAGIC;
-
+	
 PG_FUNCTION_INFO_V1(loopyhash);
 Datum
-loopyhash(PG_FUNCTION_ARGS)
+<span style="color:#a6e22e">loopyhash</span>(PG_FUNCTION_ARGS)
 {
-    uint8_t out[8];
-
-    text *arg1 = PG_GETARG_TEXT_PP(0);
-    int32 arg1_size = VARSIZE_ANY_EXHDR(arg1);
-
-    int64 arg2 = PG_GETARG_INT64(1); // For now, seed is unused, set to zero
-
-    unsigned long long retval64 = XXH64(VARDATA_ANY(arg1), arg1_size, 0);
-
-    retval64 -= 0x49a0f4dd15e5a8e3;
-
+    text <span style="color:#f92672">*</span>arg1 <span style="color:#f92672">=</span> PG_GETARG_TEXT_PP(<span style="color:#ae81ff">0</span>);
+    int32 arg1_size <span style="color:#f92672">=</span> VARSIZE_ANY_EXHDR(arg1);
+	
+    int64 arg2 <span style="color:#f92672">=</span> PG_GETARG_INT64(<span style="color:#ae81ff">1</span>); <span style="color:#75715e">// For now, seed is unused, set to zero
+</span><span style="color:#75715e"></span>	
+    <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span> <span style="color:#66d9ef">long</span> retval64 <span style="color:#f92672">=</span> XXH64(VARDATA_ANY(arg1), arg1_size, <span style="color:#ae81ff">0</span>);
+	
+    retval64 <span style="color:#f92672">-=</span> <span style="color:#ae81ff">0x49a0f4dd15e5a8e3</span>;
+	
     PG_RETURN_INT64(retval64);
 }
+	
+<span style="color:#960050;background-color:#1e0010">$</span> rm <span style="color:#f92672">-</span>fv pge.so <span style="color:#f92672">&amp;&amp;</span> gcc <span style="color:#f92672">-</span>fPIC <span style="color:#f92672">-</span>I<span style="color:#f92672">/</span>usr<span style="color:#f92672">/</span>include<span style="color:#f92672">/</span>postgresql<span style="color:#f92672">/</span><span style="color:#ae81ff">11</span><span style="color:#f92672">/</span>server <span style="color:#f92672">-</span>c pge1.c <span style="color:#f92672">&amp;&amp;</span> gcc <span style="color:#f92672">-</span>shared <span style="color:#f92672">-</span>o pge.so pge1.o
+removed <span style="color:#960050;background-color:#1e0010">&#39;</span>pge.so<span style="color:#960050;background-color:#1e0010">&#39;</span></code></pre></div>
 
-$ rm -fv pge.so &amp;&amp; gcc -fPIC -I/usr/include/postgresql/11/server -c pge1.c &amp;&amp; gcc -shared -o pge.so pge1.o
-removed 'pge.so'
-</code></pre>
+<h3 id="notice-something-strange-below">Notice something strange below?</h3>
 
-<h3 id="notice-something-strange">Notice something strange?</h3>
+<p>If you query the existing data immediately after updating the hash function&hellip;</p>
 
-<pre><code>$ psql -U hyper hyper
-psql (11beta4 (Ubuntu 11~beta4-1.pgdg18.04+1))
-Type &quot;help&quot; for help.
-
-hyper=&gt; select tableoid::regclass, * from foobar;
- tableoid  |   k   | something_else
------------+-------+----------------
- foobar_03 | Hello |             25
-(1 row)
-
-hyper=&gt; select * from foobar where k='Hello'::text;
- k | something_else
----+----------------
-(0 rows)
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql"><span style="color:#960050;background-color:#1e0010">$</span> psql <span style="color:#f92672">-</span>U hyper hyper
+psql (<span style="color:#ae81ff">11</span>beta4 (Ubuntu <span style="color:#ae81ff">11</span><span style="color:#f92672">~</span>beta4<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>.pgdg18.<span style="color:#ae81ff">04</span><span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>))
+<span style="color:#66d9ef">Type</span> <span style="color:#e6db74">&#34;help&#34;</span> <span style="color:#66d9ef">for</span> help.
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> tableoid::regclass, <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar;
+ tableoid  <span style="color:#f92672">|</span>   k   <span style="color:#f92672">|</span> something_else
+<span style="color:#75715e">-----------+-------+----------------
+</span><span style="color:#75715e"></span> foobar_03 <span style="color:#f92672">|</span> Hello <span style="color:#f92672">|</span>             <span style="color:#ae81ff">25</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar <span style="color:#66d9ef">where</span> k<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;Hello&#39;</span>::text;
+ k <span style="color:#f92672">|</span> something_else
+<span style="color:#75715e">---+----------------
+</span><span style="color:#75715e"></span>(<span style="color:#ae81ff">0</span> <span style="color:#66d9ef">rows</span>)</code></pre></div>
 
 <p>Wait!, what happened to the row? Well. We changed the definition of the hash right from underneath postgres. So the existing data is inaccessible!. Truncate and repopulate, please!</p>
 
 <h3 id="try-again-2">Try again</h3>
 
-<pre><code>hyper=&gt; truncate foobar;
-TRUNCATE TABLE
-hyper=&gt;
-hyper=&gt; insert into foobar values ('Hello', 25);
-INSERT 0 1
-hyper=&gt; select tableoid::regclass, * from foobar;
- tableoid  |   k   | something_else
------------+-------+----------------
- foobar_00 | Hello |             25
-(1 row)
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">truncate</span> foobar;
+<span style="color:#66d9ef">TRUNCATE</span> <span style="color:#66d9ef">TABLE</span>
+hyper<span style="color:#f92672">=&gt;</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">insert</span> <span style="color:#66d9ef">into</span> foobar <span style="color:#66d9ef">values</span> (<span style="color:#e6db74">&#39;Hello&#39;</span>, <span style="color:#ae81ff">25</span>);
+<span style="color:#66d9ef">INSERT</span> <span style="color:#ae81ff">0</span> <span style="color:#ae81ff">1</span>
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> tableoid::regclass, <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar;
+ tableoid  <span style="color:#f92672">|</span>   k   <span style="color:#f92672">|</span> something_else
+<span style="color:#75715e">-----------+-------+----------------
+</span><span style="color:#75715e"></span> foobar_00 <span style="color:#f92672">|</span> Hello <span style="color:#f92672">|</span>             <span style="color:#ae81ff">25</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)</code></pre></div>
 
 <h3 id="how-to-verify-the-hash-is-really-corrected-since-we-can-t-call-loophash-to-check-it-has-just-been-fixed-with-the-offset">How to verify the hash is really corrected, since we can&rsquo;t call <code>loophash</code> to check (it has just been fixed with the offset)?</h3>
 
 <p>Add debugging logs</p>
 
-<pre><code>... 
-unsigned long long retval64 = XXH64(VARDATA_ANY(arg1), arg1_size, 0);
-
-ereport( INFO, ( errcode( ERRCODE_SUCCESSFUL_COMPLETION ), errmsg( &quot;retval64: %llu\n&quot;, retval64 )));
-
-retval64 -= 0x49a0f4dd15e5a8e3;
-
-ereport( INFO, ( errcode( ERRCODE_SUCCESSFUL_COMPLETION ), errmsg( &quot;retval64: %llu\n&quot;, retval64 )));
-
-....
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">... 
+<span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span> <span style="color:#66d9ef">long</span> retval64 <span style="color:#f92672">=</span> XXH64(VARDATA_ANY(arg1), arg1_size, <span style="color:#ae81ff">0</span>);
+	
+ereport( INFO, ( errcode( ERRCODE_SUCCESSFUL_COMPLETION ), errmsg( <span style="color:#e6db74">&#34;retval64: %llu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, retval64 )));
+	
+retval64 <span style="color:#f92672">-=</span> <span style="color:#ae81ff">0x49a0f4dd15e5a8e3</span>;
+	
+ereport( INFO, ( errcode( ERRCODE_SUCCESSFUL_COMPLETION ), errmsg( <span style="color:#e6db74">&#34;retval64: %llu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, retval64 )));
+	
+....</code></pre></div>
 
 <p>Now see what we get</p>
 
-<pre><code>hyper=&gt; select * from foobar where k='Hello'::text;
-INFO:  retval64: 753694413698530628
-
-INFO:  retval64: 13894928895973315681
-
-   k   | something_else
--------+----------------
- Hello |             25
-(1 row)
-
-hyper=&gt; select tableoid::regclass, * from foobar;
- tableoid  |   k   | something_else
------------+-------+----------------
- foobar_00 | Hello |             25
-(1 row)
-
-hyper=&gt; select 753694413698530628 % 4;
- ?column?
-----------
-        0
-(1 row)
-</code></pre>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar <span style="color:#66d9ef">where</span> k<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;Hello&#39;</span>::text;
+INFO:  retval64: <span style="color:#ae81ff">753694413698530628</span>
+	
+INFO:  retval64: <span style="color:#ae81ff">13894928895973315681</span>
+	
+   k   <span style="color:#f92672">|</span> something_else
+<span style="color:#75715e">-------+----------------
+</span><span style="color:#75715e"></span> Hello <span style="color:#f92672">|</span>             <span style="color:#ae81ff">25</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> tableoid::regclass, <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar;
+ tableoid  <span style="color:#f92672">|</span>   k   <span style="color:#f92672">|</span> something_else
+<span style="color:#75715e">-----------+-------+----------------
+</span><span style="color:#75715e"></span> foobar_00 <span style="color:#f92672">|</span> Hello <span style="color:#f92672">|</span>             <span style="color:#ae81ff">25</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)
+	
+hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">select</span> <span style="color:#ae81ff">753694413698530628</span> <span style="color:#f92672">%</span> <span style="color:#ae81ff">4</span>;
+ <span style="color:#f92672">?</span><span style="color:#66d9ef">column</span><span style="color:#f92672">?</span>
+<span style="color:#75715e">----------
+</span><span style="color:#75715e"></span>        <span style="color:#ae81ff">0</span>
+(<span style="color:#ae81ff">1</span> <span style="color:#66d9ef">row</span>)</code></pre></div>
 
 <p>So the real <em>XX64</em> of <code>Hello</code> is <strong>753694413698530628</strong>, but we returned <strong>13894928895973315681</strong> to postgres so it would do <code>hash_combine64</code> on it to get back to the number <strong>753694413698530628</strong> and then do the mod. The number <strong>753694413698530628</strong> is ignored as a PG internal detail and can be ignored.</p>
 
@@ -552,76 +509,71 @@ hyper=&gt; select 753694413698530628 % 4;
 
 <h3 id="your-custom-code-explain">Your custom code &amp; explain</h3>
 
-<pre><code>hyper=&gt; explain select * from foobar where k='Hello';
-INFO:  retval64: 753694413698530628
-
-INFO:  retval64: 13894928895973315681
-
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sql" data-lang="sql">hyper<span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">explain</span> <span style="color:#66d9ef">select</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">from</span> foobar <span style="color:#66d9ef">where</span> k<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;Hello&#39;</span>;
+INFO:  retval64: <span style="color:#ae81ff">753694413698530628</span>
+	
+INFO:  retval64: <span style="color:#ae81ff">13894928895973315681</span>
+	
                            QUERY PLAN
------------------------------------------------------------------
- Append  (cost=0.00..25.91 rows=6 width=36)
-   -&gt;  Seq Scan on foobar_00  (cost=0.00..25.88 rows=6 width=36)
-         Filter: (k = 'Hello'::text)
-(3 rows)
-</code></pre>
+<span style="color:#75715e">-----------------------------------------------------------------
+</span><span style="color:#75715e"></span> Append  (cost<span style="color:#f92672">=</span><span style="color:#ae81ff">0</span>.<span style="color:#ae81ff">00</span>..<span style="color:#ae81ff">25</span>.<span style="color:#ae81ff">91</span> <span style="color:#66d9ef">rows</span><span style="color:#f92672">=</span><span style="color:#ae81ff">6</span> width<span style="color:#f92672">=</span><span style="color:#ae81ff">36</span>)
+   <span style="color:#f92672">-&gt;</span>  Seq Scan <span style="color:#66d9ef">on</span> foobar_00  (cost<span style="color:#f92672">=</span><span style="color:#ae81ff">0</span>.<span style="color:#ae81ff">00</span>..<span style="color:#ae81ff">25</span>.<span style="color:#ae81ff">88</span> <span style="color:#66d9ef">rows</span><span style="color:#f92672">=</span><span style="color:#ae81ff">6</span> width<span style="color:#f92672">=</span><span style="color:#ae81ff">36</span>)
+         Filter: (k <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;Hello&#39;</span>::text)
+(<span style="color:#ae81ff">3</span> <span style="color:#66d9ef">rows</span>)</code></pre></div>
 
 <p>Notice your code does run at the query <strong>planner</strong> stage!!!</p>
-
-  </div>
+<ul class="pa0">
   
+</ul>
+<div class="mt6">
+        
+      </div>
+    </main>
 
-<div class="navigation navigation-single">
-    
-    
+    <aside class="w-30-l mt6-l">
+
+
+
+
+</aside>
+
+  </article>
+
+    </main>
+    <footer class="bg-near-black bottom-0 w-100 pa3" role="contentinfo">
+  <div class="flex justify-between">
+  <a class="f4 fw4 hover-white no-underline white-70 dn dib-ns pv2 ph3" href="https://harikb.github.io" >
+    &copy; 2018 Harry&#39;s Random Notes
+  </a>
+    <div>
+
+
+
+  <a href="https://twitter.com/yetanotherfella" class="link-transition twitter link dib z-999 pt3 pt0-l mr2" title="Twitter link">
+    <svg height="32px"  style="enable-background:new 0 0 67 67;" version="1.1" viewBox="0 0 67 67" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M37.167,22.283c-2.619,0.953-4.274,3.411-4.086,6.101  l0.063,1.038l-1.048-0.127c-3.813-0.487-7.145-2.139-9.974-4.915l-1.383-1.377l-0.356,1.017c-0.754,2.267-0.272,4.661,1.299,6.271  c0.838,0.89,0.649,1.017-0.796,0.487c-0.503-0.169-0.943-0.296-0.985-0.233c-0.146,0.149,0.356,2.076,0.754,2.839  c0.545,1.06,1.655,2.097,2.871,2.712l1.027,0.487l-1.215,0.021c-1.173,0-1.215,0.021-1.089,0.467  c0.419,1.377,2.074,2.839,3.918,3.475l1.299,0.444l-1.131,0.678c-1.676,0.976-3.646,1.526-5.616,1.568  C19.775,43.256,19,43.341,19,43.405c0,0.211,2.557,1.397,4.044,1.864c4.463,1.377,9.765,0.783,13.746-1.568  c2.829-1.673,5.657-5,6.978-8.221c0.713-1.716,1.425-4.851,1.425-6.354c0-0.975,0.063-1.102,1.236-2.267  c0.692-0.678,1.341-1.419,1.467-1.631c0.21-0.403,0.188-0.403-0.88-0.043c-1.781,0.636-2.033,0.551-1.152-0.402  c0.649-0.678,1.425-1.907,1.425-2.267c0-0.063-0.314,0.042-0.671,0.233c-0.377,0.212-1.215,0.53-1.844,0.72l-1.131,0.361l-1.027-0.7  c-0.566-0.381-1.361-0.805-1.781-0.932C39.766,21.902,38.131,21.944,37.167,22.283z M33,64C16.432,64,3,50.569,3,34S16.432,4,33,4  s30,13.431,30,30S49.568,64,33,64z" style="fill-rule:evenodd;clip-rule:evenodd;fill:;"/></svg>
+
+  </a>
+
+
+
+
+
+  <a href="https://github.com/harikb" class="link-transition github link dib z-999 pt3 pt0-l mr2" title="Github link">
+    <svg  height="32px"  style="enable-background:new 0 0 512 512;" version="1.1" viewBox="0 0 512 512" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <path d="M256,32C132.3,32,32,134.8,32,261.7c0,101.5,64.2,187.5,153.2,217.9c11.2,2.1,15.3-5,15.3-11.1   c0-5.5-0.2-19.9-0.3-39.1c-62.3,13.9-75.5-30.8-75.5-30.8c-10.2-26.5-24.9-33.6-24.9-33.6c-20.3-14.3,1.5-14,1.5-14   c22.5,1.6,34.3,23.7,34.3,23.7c20,35.1,52.4,25,65.2,19.1c2-14.8,7.8-25,14.2-30.7c-49.7-5.8-102-25.5-102-113.5   c0-25.1,8.7-45.6,23-61.6c-2.3-5.8-10-29.2,2.2-60.8c0,0,18.8-6.2,61.6,23.5c17.9-5.1,37-7.6,56.1-7.7c19,0.1,38.2,2.6,56.1,7.7   c42.8-29.7,61.5-23.5,61.5-23.5c12.2,31.6,4.5,55,2.2,60.8c14.3,16.1,23,36.6,23,61.6c0,88.2-52.4,107.6-102.3,113.3   c8,7.1,15.2,21.1,15.2,42.5c0,30.7-0.3,55.5-0.3,63c0,6.1,4,13.3,15.4,11C415.9,449.1,480,363.1,480,261.7   C480,134.8,379.7,32,256,32z"/>
+</svg>
+
+  </a>
+
+
 </div>
-
-
-  
-
-  
-    
-
-
-</article>
-
-
-        </div>
-        
-    
-  
-  
-<script type="application/javascript">
-var doNotTrack = false;
-if (!doNotTrack) {
-	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
-	ga('create', 'UA-127087879-1', 'auto');
-	
-	ga('send', 'pageview');
-}
-</script>
-<script async src='https://www.google-analytics.com/analytics.js'></script>
-
-
-<script defer src="https://use.fontawesome.com/releases/v5.2.0/js/all.js"
-  integrity="sha384-4oV5EgaV02iISL2ban6c/RmotsABqE4yZxZLcYMAdG7FAPsyHYAPpywE9PJo+Khy"
-  crossorigin="anonymous">
-</script>
-
-
-    
-    
-    <script type="text/javascript">
-        
-        hljs.initHighlightingOnLoad();
-    </script>
-    
-
-
-
+  </div>
+</footer>
 
     
 
+  <script src="/dist/js/app.3fc0f988d21662902933.js"></script>
 
 
-    </body>
+  </body>
 </html>
