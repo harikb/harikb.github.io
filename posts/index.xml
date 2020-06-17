@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Posts on Harry&#39;s Random Notes</title>
+    <title>Posts on harikb&#39;s random notes</title>
     <link>https://harikb.github.io/posts/</link>
-    <description>Recent content in Posts on Harry&#39;s Random Notes</description>
+    <description>Recent content in Posts on harikb&#39;s random notes</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <lastBuildDate>Tue, 09 Oct 2018 13:40:02 -0700</lastBuildDate>
@@ -18,7 +18,7 @@
       
       <guid>https://harikb.github.io/posts/postgres-11-hash-partitioning-part1/</guid>
       <description>Goal: Explore Postgres 11&amp;rsquo;s Declarative Partitioning features This entire post is detailed explanation of a thread in postgresql mailing list and wonderful answers by David Rowley
-Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detach-ed from the frequently queried dataset, but retained in the database for adhoc queries detach-ed and attach-ed somewhere else (say, another table in same postgres instance)  Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table.</description>
+Why do I need partitions? I already have an index!  A partition is a logical unit that can be  drop-ed and removed from queried dataset as well as the database detach-ed from the frequently queried dataset, but retained in the database for adhoc queries detach-ed and attach-ed somewhere else (say, another table in same postgres instance)   Whenever optmizer decides to fall back to a sequential scan, you would be scanning a smaller table.</description>
     </item>
     
   </channel>
