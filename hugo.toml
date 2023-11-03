@@ -7,7 +7,7 @@ contentDir = "content/"
 DefaultContentLanguage = "en"
 SectionPagesMenu = "main"
 Paginate = 3 # this is set low for demonstrating with dummy content. Set to a higher number
-googleAnalytics = ""
+googleAnalytics = "G-98L4X1NEF3"
 enableRobotsTXT = true
 
 [sitemap]
@@ -27,4 +27,4 @@ enableRobotsTXT = true
 
 [[params.ananke_socials]]
 name = "twitter"
-url = "https://twitter.com/GoHugoIO"
+url = "https://twitter.com/yetanotherfella"
